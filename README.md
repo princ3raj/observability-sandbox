@@ -2,6 +2,19 @@
 
 A production-grade observability sandbox designed to monitor a containerized FastAPI payment gateway. This project demonstrates a "multi-signal" telemetry approach using modern industry-standard tools for logs, metrics, and business events.
 
+
+## 📊 Dashboard Gallery
+Experience the live telemetry pipeline in action.
+
+![Dashboard Overview](assets/dashboard_1.png)
+*Full System Visibility: Logs, Metrics, and Business Events.*
+
+![Application Logs](assets/dashboard_2.png)
+*Real-time Application Logs and Transaction Tracing.*
+
+![Infrastructure Metrics](assets/dashboard_3.png)
+*Deep-dive Infrastructure Health: CPU, Memory, and Disk I/O.*
+
 ## 🏗️ Architecture: Sandbox Version
 This is the architecture currently running in this repository.
 
