@@ -91,6 +91,26 @@ graph TD
 
 ---
 
+## 🚀 Scaling to the Enterprise: The Role of Apache Flink
+
+As the system grows from a sandbox to a global platform (like LinkedIn or Uber), simple data routing isn't enough. This is where **Apache Flink** enters the pipeline as the "Stateful Brain."
+
+### What Flink adds to the Pipeline:
+While **Vector** is a high-speed router (Stateless), **Flink** is a complex processor (Stateful). It allows you to:
+
+*   **Real-time Fraud Detection**: Identify suspicious patterns (e.g., "User paying from NYC and London within 5 minutes") by maintaining state across thousands of events.
+*   **Complex Windowing**: Calculate rolling metrics that don't exist in the raw data, such as "Average Transaction Value per city over the last 15 minutes."
+*   **Dynamic Alerting**: Trigger emergency notifications directly from the stream based on complex logic (e.g., "Alert if success rate drops below 95% only for users on iOS").
+*   **Stream Joining**: Enrich incoming payment logs with user metadata from a separate "Customer Info" stream in real-time.
+
+### The "LinkedIn Scale" Workflow:
+1.  **Vector Agents** collect raw data at the edge.
+2.  **Kafka** acts as the high-durability backbone.
+3.  **Flink** consumes from Kafka, performs heavy mathematical computations and fraud checks, and writes the *processed* results back to a new Kafka topic.
+4.  **Vector Aggregators** consume those final results and batch-load them into **ClickHouse** or **Apache Pinot** for high-speed visualization.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Component | Technology | Purpose |
