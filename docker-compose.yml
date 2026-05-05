@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  payment-gateway:
+    build: ./app
+    container_name: payment-gateway
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    ports:
+      - "8080:8000"
+    depends_on:
+      - kafka
+    networks:
+      - sandbox-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - sandbox-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - sandbox-net
+
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: victoria-metrics
+    ports:
+      - "8428:8428"
+    command:
+      - "--retentionPeriod=1"
+    networks:
+      - sandbox-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=password123
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - sandbox-net
+
+  vector:
+    image: timberio/vector:0.41.1-distroless-libc
+    container_name: vector
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector-data:/var/lib/vector
+    depends_on:
+      - kafka
+      - clickhouse
+      - victoria-metrics
+    networks:
+      - sandbox-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PLUGINS_PREINSTALL=vertamedia-clickhouse-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - victoria-metrics
+      - clickhouse
+    networks:
+      - sandbox-net
+
+networks:
+  sandbox-net:
+    driver: bridge
+
+volumes:
+  vector-data:

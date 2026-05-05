@@ -1,0 +1,99 @@
+{
+  "editable": true,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Payment Volume (per status)",
+      "targets": [
+        { "expr": "rate(payment_total[5m])", "legendFormat": "{{status}}", "refId": "A" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "title": "Payment Latency (P95)",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(payment_latency_bucket[5m])) by (le))", "legendFormat": "P95 Latency", "refId": "A" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "title": "CPU Usage (by Mode)",
+      "targets": [
+        { "expr": "sum(rate(host_cpu_seconds_total{mode!=\"idle\"}[2m])) by (mode)", "legendFormat": "{{mode}}", "refId": "A" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "title": "Memory Usage",
+      "targets": [
+        { "expr": "host_memory_used_bytes", "legendFormat": "Used Memory", "refId": "A" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 7,
+      "title": "Network Bandwidth",
+      "targets": [
+        { "expr": "rate(host_network_receive_bytes_total[2m])", "legendFormat": "Incoming (RX)", "refId": "A" },
+        { "expr": "rate(host_network_transmit_bytes_total[2m])", "legendFormat": "Outgoing (TX)", "refId": "B" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "id": 8,
+      "title": "System Load Average",
+      "targets": [
+        { "expr": "host_load1", "legendFormat": "1m Load", "refId": "A" },
+        { "expr": "host_load5", "legendFormat": "5m Load", "refId": "B" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "id": 9,
+      "title": "Disk I/O (Read/Write)",
+      "targets": [
+        { "expr": "rate(host_disk_read_bytes_total[2m])", "legendFormat": "Read", "refId": "A" },
+        { "expr": "rate(host_disk_written_bytes_total[2m])", "legendFormat": "Write", "refId": "B" }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "default" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "id": 10,
+      "title": "Filesystem Usage (%)",
+      "targets": [
+        { "expr": "host_filesystem_used_bytes{mountpoint=\"/\"} / host_filesystem_total_bytes{mountpoint=\"/\"}", "legendFormat": "Root Partition", "refId": "A" }
+      ],
+      "type": "gauge"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "title": "Observability Sandbox - Payment System",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  }
+}

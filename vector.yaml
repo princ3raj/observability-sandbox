@@ -1,0 +1,114 @@
+# Vector configuration for high-scale observability routing
+
+sources:
+  # 1. Capture logs from Docker containers
+  docker_logs_src:
+    type: "docker_logs"
+    include_containers: ["payment-gateway"]
+
+  # 2. Capture transaction events from Kafka
+  kafka_events_src:
+    type: "kafka"
+    bootstrap_servers: "kafka:29092"
+    group_id: "vector-events-consumer"
+    topics: ["transaction-events"]
+    decoding:
+      codec: "json"
+
+  # 3. Capture traces/logs via OTLP (gRPC + HTTP)
+  # NOTE: Vector's opentelemetry source supports .logs and .traces outputs only.
+  # OTLP metrics must be sent directly to VictoriaMetrics at:
+  #   http://victoria-metrics:8428/opentelemetry/api/v1/push
+  otlp_src:
+    type: "opentelemetry"
+    grpc:
+      address: "0.0.0.0:4317"
+    http:
+      address: "0.0.0.0:4318"
+
+  host_metrics_src:
+    type: "host_metrics"
+    collectors: ["cpu", "memory", "network", "disk", "filesystem", "load", "host"]
+    scrape_interval_secs: 15
+
+transforms:
+  # Parse and sanitize Docker logs
+  parse_logs:
+    type: "remap"
+    inputs: ["docker_logs_src"]
+    source: |
+      parsed, err = parse_json(.message)
+      if err == null {
+          . = parsed
+          ts = parse_timestamp(.timestamp, format: "%Y-%m-%dT%H:%M:%S%.fZ") ?? now()
+          .timestamp = format_timestamp!(ts, format: "%Y-%m-%d %H:%M:%S%.3f")
+      } else {
+          .message = .message
+          .level = "INFO"
+          .timestamp = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%.3f")
+      }
+      .service_name = "payment-gateway"
+
+  # Schema Guard for Kafka events (VRL)
+  validate_events:
+    type: "remap"
+    inputs: ["kafka_events_src"]
+    source: |
+      # Enforce types and provide defaults
+      .amount = float(.amount) ?? 0.0
+      .status = string(.status) ?? "unknown"
+      ts = parse_timestamp(.timestamp, format: "%Y-%m-%dT%H:%M:%S%.fZ") ?? now()
+      .timestamp = format_timestamp!(ts, format: "%Y-%m-%d %H:%M:%S%.3f")
+
+      # Drop events missing critical IDs (Schema Enforcement)
+      if .transaction_id == null || .order_id == null {
+        log("Dropping malformed event missing IDs", level: "error")
+        abort
+      }
+
+sinks:
+  # 1. Docker logs to ClickHouse
+  clickhouse_logs:
+    type: "clickhouse"
+    inputs: ["parse_logs"]
+    endpoint: "http://clickhouse:8123"
+    database: "sandbox"
+    table: "logs"
+    auth:
+      strategy: "basic"
+      user: "default"
+      password: "password123"
+    skip_unknown_fields: true
+    buffer:
+      type: "memory"
+      max_events: 1000
+
+  # 2. Transaction Events to ClickHouse
+  clickhouse_events:
+    type: "clickhouse"
+    inputs: ["validate_events"]
+    endpoint: "http://clickhouse:8123"
+    database: "sandbox"
+    table: "transaction_events"
+    auth:
+      strategy: "basic"
+      user: "default"
+      password: "password123"
+    skip_unknown_fields: true
+    buffer:
+      type: "memory"
+      max_events: 1000
+
+  # 3. Host Metrics to VictoriaMetrics
+  victoria_metrics_host:
+    type: "prometheus_remote_write"
+    inputs: ["host_metrics_src"]
+    endpoint: "http://victoria-metrics:8428/api/v1/write"
+
+  # 3. OTLP logs and traces to console (for debugging)
+  # Metrics bypass Vector — send directly to http://victoria-metrics:8428/opentelemetry/api/v1/push
+  otlp_debug:
+    type: "console"
+    inputs: ["otlp_src.logs", "otlp_src.traces"]
+    encoding:
+      codec: "json"
