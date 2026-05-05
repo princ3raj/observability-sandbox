@@ -103,11 +103,34 @@ While **Vector** is a high-speed router (Stateless), **Flink** is a complex proc
 *   **Dynamic Alerting**: Trigger emergency notifications directly from the stream based on complex logic (e.g., "Alert if success rate drops below 95% only for users on iOS").
 *   **Stream Joining**: Enrich incoming payment logs with user metadata from a separate "Customer Info" stream in real-time.
 
-### The "LinkedIn Scale" Workflow:
-1.  **Vector Agents** collect raw data at the edge.
-2.  **Kafka** acts as the high-durability backbone.
-3.  **Flink** consumes from Kafka, performs heavy mathematical computations and fraud checks, and writes the *processed* results back to a new Kafka topic.
-4.  **Vector Aggregators** consume those final results and batch-load them into **ClickHouse** or **Apache Pinot** for high-speed visualization.
+### 📈 Data Choice & Quantification (The "Why")
+
+At LinkedIn scale, one database cannot do everything. We choose specialized tools based on their performance "sweet spots":
+
+| Database | Throughput | Query Latency | Primary Use Case |
+| :--- | :--- | :--- | :--- |
+| **ClickHouse** | **100M+ logs/sec** | < 1 second | **Internal Ops**: Analyzing trillions of logs to find bugs. |
+| **Apache Pinot** | **200k+ QPS** | **< 50ms** | **User-Facing**: The "Who viewed your profile" chart. |
+| **VictoriaMetrics**| **1M+ samples/sec**| < 200ms | **Infra Health**: Monitoring 10,000+ servers' CPU/RAM. |
+| **Kafka** | **TB/hour** | N/A | **The Backbone**: Moving data between all of the above. |
+
+### 🪟 Complex Windowing in Flink
+Flink's superpower is its ability to perform calculations on a "slice" of time. Here is how we use it:
+
+1.  **Tumbling Windows (Fixed Size)**: 
+    - *Example*: "Total failed payments every 5 minutes."
+    - *Usage*: Use this for clean, non-overlapping hourly or daily reports.
+2.  **Sliding Windows (Overlapping)**:
+    - *Example*: "Average latency of the last 10 minutes, updated every 30 seconds."
+    - *Usage*: Perfect for smooth monitoring graphs that catch spikes quickly.
+3.  **Session Windows (Gap-based)**:
+    - *Example*: "Group all events from a user until they are inactive for 30 minutes."
+    - *Usage*: Crucial for analyzing "User Journeys"—seeing exactly what a user did from login to purchase.
+
+### 📚 Deep Dive References
+- **[Apache Flink: Windowing Documentation](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/operators/windows/)** - The official guide to stateful time processing.
+- **[ClickHouse vs. Pinot vs. Druid](https://altinity.com/blog/clickhouse-vs-pinot-comparison/)** - A deep comparison of real-time OLAP databases.
+- **[The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)** - The famous LinkedIn article that explains the philosophy behind this architecture.
 
 ---
 
